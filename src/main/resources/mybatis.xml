@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+
+    <!-- ========== 类型别名 ========== -->
+    <typeAliases>
+        <typeAlias alias="EndpointInfo"
+                   type="citi.equities.lifecycleqa.eh.common.entities.EndpointInfo"/>
+        <typeAlias alias="JiraEntity"
+                   type="citi.equities.lifecycleqa.eh.common.entities.JiraEntity"/>
+        <typeAlias alias="AutoRioTemplate"
+                   type="citi.equities.lifecycleqa.eh.common.entities.AutoRioTemplate"/>
+        <typeAlias alias="APIAutoCaseForURIResponse"
+                   type="citi.equities.lifecycleqa.eh.common.entities.AutoRioTemplate"/>
+        <typeAlias alias="APIAutoCaseForURISingleIdResponse"
+                   type="citi.equities.lifecycleqa.eh.common.entities.AutoRioTemplate"/>
+    </typeAliases>
+
+    <!-- ========== 插件 ========== -->
+    <plugins>
+        <plugin interceptor="com.github.pagehelper.PageInterceptor"/>
+    </plugins>
+
+    <!-- ========== 环境配置 ========== -->
+    <environments default="common">
+        <environment id="common">
+            <transactionManager type="JDBC">
+                <property name="JDBC.DefaultAutoCommit" value="false"/>
+            </transactionManager>
+
+            <dataSource type="POOLED">
+                <property name="driver"   value="${driver}"/>
+                <property name="url"      value="${url}"/>
+                <property name="username" value="${username}"/>
+                <property name="password" value="${password}"/>
+            </dataSource>
+        </environment>
+    </environments>
+
+    <!-- ========== Mapper 映射 ========== -->
+    <mappers>
+        <mapper resource="mapper/select.xml"/>
+        <mapper resource="mapper/insert.xml"/>
+        <mapper resource="mapper/delete.xml"/>
+        <mapper resource="mapper/update.xml"/>
+    </mappers>
+
+</configuration>

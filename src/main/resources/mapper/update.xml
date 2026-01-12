@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="">
+    <update id="updateAutoCaseAudit">
+        update auto_case_audit
+        <set>
+            <if test="element!=null and runStatus!=null">
+                element = '${element}'::jsonb , "runStatus" = '${runStatus}'::automation_run_status
+            </if>
+            <if test="testDataKey!=null and testDataValue!=null">
+                "testData" = jsonb_set("testData", '${testDataKey}', '${testDataValue}')
+            </if>
+        </set>
+        where "runId" = '${runId}' and "caseId" = ${caseId}
+    </update>
+
+    <update id="updateAutoProgress">
+        update auto_progress
+        <set>
+            <if test="type=='end'">
+                end_time = (current_timestamp at time zone 'Asia/Shanghai'), task_status = case when total_cases =
+                passes + failures + skips then 'COMPLETED'::auto_progress_status else 'FAILED'::auto_progress_status end
+            </if>
+            <if test="type!='end'">
+                ${type} = ${type} + 1,
+            </if>
+        </set>
+        where runId='${runId}'
+    </update>
+
+    <update id="updateAutoCase">
+        <if test="isTemplate!=null and isTemplate=='true'">
+            update auto_case_template set script = #{script}::jsonb, variables = #{variables}::jsonb where component =
+            '${component}' and "templateName" = '${templateName}';
+            UPDATE auto_case_scenario SET
+            <if test="enable!=null and enable!=''">"enable = #{enable}::boolean,</if>
+            <if test="isSanity!=null and isSanity!=''">"isSanity" = #{isSanity}::boolean,</if>
+            <if test="component!=null and component!=''">"component = #{component},</if>
+            <if test="templateName!=null and templateName!=''">"templateName" = '${templateName}',</if>
+            <if test="issueKey!=null and issueKey!=''">"issueKey" = #{issueKey},</if>
+            <if test="summary!=null and summary!=''">"summary = #{summary},</if>
+            <if test="scenario!=null and scenario!=''">"scenario = #{scenario},</if>
+            <if test="label!=null and label!=''">"label = #{label},</if>
+            <if test="componentLike!=null and componentLike!=''">"componentLike" = #{componentLike}::jsonb,</if>
+            <if test="profile!=null and profile!=''">"profile = #{profile}::jsonb,</if>
+            <if test="testData!=null and testData!=''">"testData" = #{testData}::jsonb,</if>
+            <if test="variables!=null and variables!=''">"variables = #{variables}::jsonb,</if>
+            <if test="script!=null and script!=''">"script = '[]'::jsonb,</if>
+            <if test="endpoint!=null and endpoint!=''">"endpoint = #{endpoint},</if>
+            <if test="method!=null and method!=''">"method = #{method},</if>
+            <if test="endpointLike!=null and endpointLike!=''">"endpointLike" = #{endpointLike}::jsonb,</if>
+            "isTemplate" = true,
+            update_at = now() AT TIME ZONE 'Asia/Shanghai'
+            WHERE id = ${id};
+        </if>
+
+        <if test="isTemplate!=null and isTemplate=='false'">
+            UPDATE auto_case_scenario SET
+            <if test="enable!=null and enable!=''">"enable = #{enable}::boolean,</if>
+            <if test="isSanity!=null and isSanity!=''">"isSanity" = #{isSanity}::boolean,</if>
+            <if test="component!=null and component!=''">"component = #{component},</if>
+            "templateName" = '',
+            <if test="issueKey!=null and issueKey!=''">"issueKey" = #{issueKey},</if>
+            <if test="summary!=null and summary!=''">"summary = #{summary},</if>
+            <if test="scenario!=null and scenario!=''">"scenario = #{scenario},</if>
+            <if test="label!=null and label!=''">"label = #{label},</if>
+            <if test="componentLike!=null and componentLike!=''">"componentLike" = #{componentLike}::jsonb,</if>
+            <if test="profile!=null and profile!=''">"profile = #{profile}::jsonb,</if>
+            <if test="testData!=null and testData!=''">"testData" = #{testData}::jsonb,</if>
+            <if test="variables!=null and variables!=''">"variables = #{variables}::jsonb,</if>
+            <if test="script!=null and script!=''">"script = #{script}::jsonb,</if>
+            <if test="endpoint!=null and endpoint!=''">"endpoint = #{endpoint},</if>
+            <if test="method!=null and method!=''">"method = #{method},</if>
+            <if test="endpointLike!=null and endpointLike!=''">"endpointLike" = #{endpointLike}::jsonb,</if>
+            "isTemplate" = false,
+            update_at = now() AT TIME ZONE 'Asia/Shanghai'
+            WHERE id = ${id};
+        </if>
+    </update>
+
+    <update id="updateBaseUrlIntoAutoBaseURL" parameterType="map">
+        UPDATE auto_baseurl
+        SET base_url = #{baseUrl}
+        WHERE service_name = #{serviceName}
+        AND profile = #{profileName};
+    </update>
+
+    <update id="updateElementAndRunStatusToAutoCaseAudit" parameterType="map">
+        UPDATE auto_case_audit
+        SET element = #{element}::jsonb,
+        "runStatus" = #{runStatus}::automation_run_status
+        WHERE "runId" = #{runId}
+        AND "caseId" = #{caseId};
+    </update>
+
+    <update id="updateUpdateAtBySpecificAttributionAndValue" parameterType="map">
+        UPDATE auto_case
+        SET update_at = now()
+        <if test="values != null and values.size() > 0">
+            WHERE ${attribution} IN
+            <foreach item="value" index="index" collection="values" open="(" separator="," close=")">
+                #{value}
+            </foreach>
+        </if>
+    </update>
+
+    <update id="updateAutoCaseUIElement" parameterType="map">
+        UPDATE auto_case_ui_element
+        SET page = trim(#{page}),
+            name = trim(#{name}),
+            selector = trim(#{selector}),
+            frame = trim(#{frame}),
+            application = trim(#{application})
+        WHERE id = #{id};
+    </update>
+
+    <update id="updateAutoCaseUI" parameterType="java.util.Map">
+        UPDATE auto_case_ui
+        <set>
+            <if test="enable != null and enable != ''">
+                enable = #{enable}::boolean,
+            </if>
+            <if test="isSanity != null and isSanity != ''">
+                "isSanity" = #{isSanity}::boolean,
+            </if>
+            <if test="component != null and component != ''">
+                component = #{component},
+            </if>
+            <if test="issueKey != null">
+                "issueKey" = #{issueKey},
+            </if>
+            <if test="summary != null and summary != ''">
+                summary = #{summary},
+            </if>
+            <if test="scenario != null and scenario != ''">
+                scenario = #{scenario},
+            </if>
+            <if test="label != null">
+                label = #{label},
+            </if>
+            <if test="componentLike != null and componentLike != ''">
+                "componentLike" = #{componentLike}::jsonb,
+            </if>
+            <if test="profile != null and profile != ''">
+                "profileSupport" = #{profile}::jsonb,
+            </if>
+            <if test="testData != null and testData != ''">
+                "testData" = #{testData}::jsonb,
+            </if>
+            <if test="caseVariables != null and caseVariables != ''">
+                variable = #{caseVariables}::jsonb,
+            </if>
+            <if test="script != null and script != ''">
+                script = #{script}::jsonb,
+            </if>
+            <if test="application != null and application != ''">
+                application = #{application}
+            </if>
+        </set>
+        WHERE id = #{id};
+    </update>
+
+    <update id="updateAutoCaseUIBehavior" parameterType="java.util.Map">
+        UPDATE auto_case_ui_behavior
+        <set>
+            <if test="page != null and page != ''">
+                page = #{page},
+            </if>
+            <if test="name != null and name != ''">
+                name = #{name},
+            </if>
+            <if test="variable != null and variable != ''">
+                variable = #{variable}::jsonb,
+            </if>
+            <if test="script != null and script != ''">
+                script = #{script}::jsonb,
+            </if>
+        </set>
+        WHERE id = #{id};
+    </update>
+</mapper>

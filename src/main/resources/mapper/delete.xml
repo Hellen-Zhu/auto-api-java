@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="">
+    <delete id="deleteAutoCasesByIdList">
+        DELETE FROM auto_case_scenario WHERE id IN
+        <foreach collection="idList" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteFromAutoEndpointAllByServiceName" parameterType="java.util.List">
+        DELETE FROM auto_endpoint_all
+        <if test="serviceNames != null and serviceNames.size() > 0">
+            WHERE service_name IN
+            <foreach item="service" index="index" collection="serviceNames" open="(" separator="," close=")">
+                #{service}
+            </foreach>
+        </if>
+    </delete>
+
+    <delete id="deleteFromAutoBaseUrlByServiceName" parameterType="java.util.List">
+        DELETE FROM auto_baseurl
+        <if test="serviceNames != null and serviceNames.size() > 0">
+            WHERE service_name IN
+            <foreach item="service" index="index" collection="serviceNames" open="(" separator="," close=")">
+                #{service}
+            </foreach>
+        </if>
+    </delete>
+
+    <delete id="deleteFromAutoConfigurationByServiceName" parameterType="java.util.List">
+        DELETE FROM auto_api_configuration
+        <if test="serviceNames != null and serviceNames.size() > 0">
+            WHERE serviceName IN
+            <foreach item="service" index="index" collection="serviceNames" open="(" separator="," close=")">
+                #{service}
+            </foreach>
+        </if>
+    </delete>
+
+    <delete id="deleteAutoCaseScenarioByIdList" parameterType="java.util.List">
+        DELETE FROM auto_case_scenario
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteAutoCaseUIElementByIdList" parameterType="java.util.List">
+        DELETE FROM auto_case_ui_element
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteAutoCaseUIByIdList" parameterType="java.util.List">
+        DELETE FROM auto_case_ui
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteAutoCaseUIBehaviorByIdList" parameterType="java.util.List">
+        DELETE FROM auto_case_ui_behavior
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

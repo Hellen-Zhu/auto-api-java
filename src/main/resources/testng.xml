@@ -1,0 +1,24 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="suite" verbose="1" time-out="10000000" parallel="instances" thread-count="4">
+  <listeners>
+    <listener class-name="citi.equities.lifecycleqa.common.listeners.CommonAlterListener"/>
+    <listener class-name="citi.equities.lifecycleqa.common.listeners.CommonSuiteListener"/>
+  </listeners>
+  <!--     Necessary: Either Component or id work, id > component    -->
+  <parameter name="automationType" value="API"/>
+  <parameter name="componentOrId" value=""/>
+  <parameter name="profile" value=""/>
+  <parameter name="runMode" value="DEBUG"/><!-- DEBUG(default) , TEST-->
+  <parameter name="automationMode" value="COMPONENT"/><!-- ID, COMPONENT-->
+  <!--    Additional  -->
+  <parameter name="sanityOnly" value="false"/><!-- false(default) , true-->
+  <parameter name="runBy" value=""/>
+  <parameter name="projectKey" value=""/>
+  <parameter name="releaseVersion" value=""/>
+
+  <test name="test" preserve-order="false">
+    <classes>
+      <class name="citi.equities.lifecycleqa.test.TestRunFactory"/>
+    </classes>
+  </test>
+</suite>

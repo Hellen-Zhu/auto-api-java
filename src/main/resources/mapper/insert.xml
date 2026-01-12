@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="">
+    <insert id="insertAutoCaseAudit">
+        insert into auto_case_audit ("runId",suite,scenario,"issueKey",summary,"runStatus",script,"testData",element,
+        config,"runMode","caseId",label,region,env, variables)
+        values
+        <foreach collection="audits" item="item" separator=",">
+            ('${item.runId}','${item.suite}','${item.scenario}','${item.issueKey}','${item.summary}','${item.runStatus}'
+            ,#{item.script}::jsonb, #{item.testData}::jsonb,'[]'::jsonb,#{item.runMode}',
+            ${item.caseId},'${item.label}','${item.region}','${item.env}',#{item.variables}::jsonb)
+        </foreach>
+    </insert>
+
+    <insert id="updateAutoCasePassrate">
+        delete from auto_case_passrate
+        <if test="component!=null and component!=''">"where "caseId" in (select distinct id from auto_case_scenario
+        where component = Any(string_to_array('${component}',',')))</if>
+        INSERT INTO auto_case_passrate ("caseId", namqa, namuat, namdev, emeaqa, emeadev, emeauat, apacqa, apacdev,
+        apacuat, average, update_at)
+        select id,
+        COALESCE(namqa, 0.0) as namqa,
+        COALESCE(namuat, 0.0) as namuat,
+        COALESCE(namdev, 0.0) as namdev,
+        COALESCE(emeaqa, 0.0) as emeaqa,
+        COALESCE(emeadev, 0.0) as emeadev,
+        COALESCE(emeauat, 0.0) as emeauat,
+        COALESCE(apacqa, 0.0) as apacqa,
+        COALESCE(apacdev, 0.0) as apacdev,
+        COALESCE(apacuat, 0.0) as apacuat,
+        COALESCE(calculate_average_for_floats(0.0, COALESCE(namqa, 0.0), COALESCE(namuat, 0.0), COALESCE(namdev, 0.0),
+        COALESCE(emeaqa, 0.0), COALESCE(emeadev, 0.0),
+        COALESCE(emeauat, 0.0), COALESCE(apacqa, 0.0), COALESCE(apacdev, 0.0), COALESCE(apacuat, 0.0)),0.0)
+        as average,now() AT TIME ZONE 'Asia/Shanghai' as update_at
+        FROM crosstab(
+        'select "caseId",lower(a.region || a.env), ROUND((SUM(CASE WHEN a."runStatus" = ''FAILED'' THEN 0 ELSE 1 END)
+        ::float / COUNT(*)::float)::numeric, 4) AS passrate from auto_case_audit a join auto_case_scenario s on a."caseId"
+        = s.id where a."runStatus" in (''FAILED'', ''PASSED'')
+        and a.region is not null and a.env is not null and a.update_at >= (CURRENT_DATE - INTERVAL ''12 month'')
+        <if test="component!=null and component!=''">"and s.component = Any(string_to_array('${component}',',',''))</if>
+        group by a."caseId",a.region, a.env order by 1
+        ','SELECT jsonb_array_elements_text(''["namqa","namuat","namdev","emeaqa","emeadev","emeauat","apacqa","apacdev",
+        "apacuat"]'')
+        ) AS ct (id int, namqa float,namuat float,namdev float,emeaqa float,emeadev float,emeauat float,apacqa float,
+        apacdev float,apacuat float)
+    </insert>
+
+    <insert id="insertAutoProgressFromAudit">
+        insert into auto_progress( runId, version_id,profile, releaseversion, component, total_cases, task_status,
+        success, failures, skips, begin_time, end_time, run_by, label, "runMode",update_time)
+        select "runId", COALESCE((SELECT version_id FROM releases_entry WHERE name LIKE '%' || CAST(config ->
+        'releaseversion' as varchar) || '%' limit 1), 1) as version_id,
+        upper(region || env), config -> 'releaseversion', config -> 'component', cast(COALESCE((SELECT count(*)
+        FROM auto_case_audit WHERE "runId" = '${runId}'), 0) as int),'PROCESSING'::auto_progress_status,0,0,0,
+        (current_timestamp at time zone 'Asia/Shanghai'),null,
+        config -> 'runBy','*' as label,"runMode", (current_timestamp at time zone 'Asia/Shanghai') from auto_case_audit
+        where "runId" = '${runId}' limit 1
+    </insert>
+
+    <insert id="insertAutoCase">
+        <if test="isTemplate!=null and isTemplate=='false'">
+            INSERT INTO auto_case_scenario (enable, "isSanity", component, "templateName", "issueKey", summary,
+            "testData", variables,
+            scenario, label, "componentLike", profile,"isTemplate", script, endpoint, method, "endpointLike",update_at)
+            SELECT ${enable}, ${isSanity}, #{component}, '', '${issueKey}',
+            #{summary},#{testData}::jsonb,#{variables}::jsonb,
+            #{scenario}, #{label},
+            #{componentLike}::jsonb,
+            #{profile}::jsonb,
+            false,
+            #{script}::jsonb,
+            #{endpoint},
+            #{method},
+            #{endpointLike}::jsonb,
+            now() AT TIME ZONE 'Asia/Shanghai'
+            FROM auto_case_scenario
+            WHERE NOT EXISTS (
+            SELECT 1 FROM auto_case_scenario
+            WHERE component = #{component}
+            AND scenario = #{scenario}
+            AND summary = #{summary}
+            AND "issueKey" = #{issueKey}
+            AND label = #{label}
+            ) limit 1;
+        </if>
+
+        <if test="isTemplate!=null and isTemplate=='true'">
+            update auto_case_template set script = #{script}::jsonb, variables = #{variables}::jsonb where
+            component = #{component} and "templateName" = #{templateName};
+            INSERT INTO auto_case_scenario (enable, "isSanity", component, "templateName", "issueKey",
+            summary, "testData", variables,
+            scenario, label, "componentLike", profile,"isTemplate", script, endpoint, method,
+            "endpointLike", update_at)
+            SELECT ${enable}, ${isSanity}, #{component}, #{templateName}, '${issueKey}',
+            #{summary},#{testData}::jsonb,#{variables}::jsonb,
+            #{scenario}, #{label},
+            #{componentLike}::jsonb,
+            #{profile}::jsonb,
+            true,
+            '[]'::jsonb,
+            #{endpoint},
+            #{method},
+            #{endpointLike}::jsonb,
+            now() AT TIME ZONE 'Asia/Shanghai'
+            FROM auto_case_scenario
+            WHERE NOT EXISTS (
+            SELECT 1 FROM auto_case_scenario
+            WHERE component = #{component}
+            AND scenario = #{scenario}
+            AND summary = #{summary}
+            AND "issueKey" = #{issueKey}
+            AND label = #{label}
+            ) limit 1;
+        </if>
+    </insert>
+
+    <insert id="insertBaseUrlIntoAutoBaseURL" parameterType="map">
+        INSERT INTO auto_baseurl (service_name, base_url, profile)
+        VALUES (#{serviceName}, #{baseUrl}, #{profile});
+    </insert>
+
+    <insert id="insertGeneratedAutoCaseIntoAutoCaseScenario" parameterType="map">
+        INSERT INTO auto_case_scenario (enable, "isSanity", component, "templateName", "issueKey", summary,
+        "testData", update_at, scenario, label, "componentLike", profile, variables, "isTemplate", script, endpoint,
+        method, "endpointLike")
+        SELECT false, true, #{componentName}, '', '',
+        split_part(obj, '_', 2) || ' ' || split_part(obj, '_', 1),
+        '{}'::jsonb, now(), #{service}, #{label},
+        '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, false,
+        cast('[{"id": 1, "name": "", "test": {"path": "' || Replace(Replace(split_part(obj, '_', 1),
+        '{', '{{'), '}', '}}'), "'|| split_part(obj, '_', 2) || '", "request": {}, "serviceName":
+        "#{service}"}, "afterTest": [{"id": 1, "assert": [{"id": 1, "key": "[{response1.statusCode}]", "value": 200,
+        "condition": "IsEqual", "description": "Assert Response StatusCode"}]}], "ifRollBack": false}]' as jsonb),
+        split_part(obj, '_', 1), split_part(obj, '_', 2), '{}'::jsonb
+        FROM jsonb_array_elements_text(#{endpointList}::jsonb) obj;
+    </insert>
+
+    <insert id="saveAutoCaseUIElement" parameterType="map">
+        INSERT INTO auto_case_ui_element (page, name, selector, frame, application)
+        VALUES (trim(#{page}), trim(#{name}), trim(#{selector}), trim(#{frame}), trim(#{application}));
+    </insert>
+
+    <insert id="insertAutoCaseUI" parameterType="java.util.Map">
+        INSERT INTO auto_case_ui (enable, "isSanity", component, "issueKey", summary, "testData", variable,
+        scenario, label, "componentLike", "isTemplate", script, application)
+        VALUES (#{enable}::boolean, #{isSanity}::boolean, #{component}, #{issueKey}, #{summary}, #{testData}::jsonb,
+        #{caseVariables}::jsonb,
+        #{scenario}, #{label}, #{componentLike}::jsonb, #{profile}::jsonb, #{script}::jsonb, #{application});
+    </insert>
+
+    <insert id="saveAutoCaseUIBehavior" parameterType="java.util.Map">
+        INSERT INTO auto_case_ui_behavior (page, name, script, variable, application)
+        VALUES (#{page}, #{name}, #{script}::jsonb, #{variable}::jsonb, #{application});
+    </insert>
+</mapper>
