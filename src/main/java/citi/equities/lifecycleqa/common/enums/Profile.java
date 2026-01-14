@@ -1,65 +1,54 @@
 package citi.equities.lifecycleqa.common.enums;
 
-import java.util.Arrays;
-import java.util.List;
-
+/**
+ * Profile 枚举类
+ * 表示不同的环境配置（开发、UAT、QA等）
+ */
 public enum Profile {
-    DEV("DEV", "Development"),
-    TEST("TEST", "Test"),
-    STAGING("STAGING", "Staging"),
-    PROD("PROD", "Production"),
-    LOCAL("LOCAL", "Local"),
-    UAT("UAT", "User Acceptance Testing"),
-    INTEGRATION("INTEGRATION", "Integration Testing"),
-    PERFORMANCE("PERFORMANCE", "Performance Testing"),
-    DEMO("DEMO", "Demo"),
-    SANDBOX("SANDBOX", "Sandbox");
+    NAMDEV,
+    EMEADEV,
+    APACDEV,
+    NAMUAT,
+    EMEAUAT,
+    APACUAT,
+    NAMQA,
+    EMEAQA,
+    APACQA,
+    UNKNOWN;
 
-    private final String profile;
-    private final String description;
-
-    Profile(String profile, String description) {
-        this.profile = profile;
-        this.description = description;
-    }
-
-    public String getProfile() {
-        return profile;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public static Profile fromString(String profile) {
-        for (Profile p : Profile.values()) {
-            if (p.name().equalsIgnoreCase(profile) || p.profile.equalsIgnoreCase(profile)) {
-                return p;
-            }
+    /**
+     * 判断字符串是否是合法的 Profile 枚举值（忽略大小写）
+     *
+     * @param value 要检查的字符串
+     * @return 如果是合法的 Profile 枚举值返回 true，否则返回 false
+     */
+    public static boolean isValid(String value) {
+        if (value == null) {
+            return false;
         }
-        return DEV;
-    }
-
-    public static boolean isValid(String profile) {
-        for (Profile p : Profile.values()) {
-            if (p.name().equalsIgnoreCase(profile) || p.profile.equalsIgnoreCase(profile)) {
+        for (Profile p : values()) {
+            if (p.name().equalsIgnoreCase(value)) {
                 return true;
             }
         }
         return false;
     }
 
-    public static boolean isProduction(Profile profile) {
-        return profile == PROD;
-    }
-
-    public static boolean isDevelopment(Profile profile) {
-        List<Profile> devProfiles = Arrays.asList(DEV, LOCAL, SANDBOX);
-        return devProfiles.contains(profile);
-    }
-
-    public static boolean isTesting(Profile profile) {
-        List<Profile> testProfiles = Arrays.asList(TEST, UAT, INTEGRATION, PERFORMANCE, STAGING);
-        return testProfiles.contains(profile);
+    /**
+     * 根据字符串返回对应枚举；如果找不到则返回 UNKNOWN
+     *
+     * @param value 要转换的字符串
+     * @return 对应的 Profile 枚举值，如果找不到则返回 UNKNOWN
+     */
+    public static Profile fromString(String value) {
+        if (value == null) {
+            return UNKNOWN;
+        }
+        for (Profile p : values()) {
+            if (p.name().equalsIgnoreCase(value)) {
+                return p;
+            }
+        }
+        return UNKNOWN;
     }
 }

@@ -130,8 +130,8 @@ public class SuiteGeneratePreparationHelper {
                         .append(" for suiteParameter=").append(suiteParameter).append("\n");
                 log.error("Invalid mode={} for suiteParameter={}", suiteParameter.getAutomationMode(), suiteParameter);
                 return new TestNGXMLParameter(
-                        AutomationType.API, "", AutomationRunMode.DEBUG, false, "",
-                        "", "", Profile.DEV, "", null, ""
+                        AutomationType.UNKNOWN, "", AutomationRunMode.DEBUG, false, "",
+                        "", "", Profile.UNKNOWN, "", null, ""
                 );
         }
     }

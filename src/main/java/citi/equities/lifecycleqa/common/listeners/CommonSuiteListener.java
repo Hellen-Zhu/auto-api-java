@@ -56,7 +56,7 @@ public class CommonSuiteListener implements ISuiteListener {
         String region = config.has("region") ? config.get("region").asText("") : "";
         String env = config.has("env") ? config.get("env").asText("") : "";
 
-        sb.append("delete from auto_case_audit where \"runId\"='").append(runId).append("';\n");
+//        sb.append("delete from auto_case_audit where \"runId\"='").append(runId).append("';\n");
 
         if (scenarioAudits.isObject()) {
             scenarioAudits.fieldNames().forEachRemaining(key -> {
