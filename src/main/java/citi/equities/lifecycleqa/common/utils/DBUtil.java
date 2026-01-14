@@ -150,11 +150,20 @@ public class DBUtil {
                                         StringBuilder errorMessage, Map<String, Object> params) {
         SqlSessionManager sqlSessionManager = InitialConfig.getLIFSqlSessionManager();
         log.info("Start to execute {} {}", isSql ? "SQL" : "statement", statementOrSql);
+        
+        // 打印详细的 SQL 执行信息
+        if (!isSql && params != null) {
+            log.info("执行 Statement: {}, 参数详情: {}", statementOrSql, params);
+            params.forEach((key, value) -> 
+                log.debug("  - 参数名: {}, 参数值: {}, 类型: {}", key, value, value != null ? value.getClass().getSimpleName() : "null")
+            );
+        }
 
         if (isSql) {
             return executeSQL(sqlSessionManager, statementOrSql, errorMessage, 1, 1, null);
         } else {
             try (SqlSession session = sqlSessionManager.openSession()) {
+                log.debug("执行 MyBatis Statement: {} with params: {}", statementOrSql, params);
                 List<Object> result = session.selectList(statementOrSql, params);
                 if (result == null || result.isEmpty()) {
                     result = new ArrayList<>();

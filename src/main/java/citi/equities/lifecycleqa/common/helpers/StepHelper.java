@@ -24,8 +24,10 @@ public class StepHelper {
         StringBuilder errorMessage = new StringBuilder();
 
         // step 1: check before Loop and Loop
+        JsonNode stepObjectNode = baseInfo.getStepObject();
+        ObjectNode stepObjectForLoop = stepObjectNode.isObject() ? (ObjectNode) stepObjectNode : objectMapper.createObjectNode();
         Map<Integer, ObjectNode> stepArray = processBeforeLoopAndLoop(
-                baseInfo, baseInfo.getStepObject(), AutomationLoopKey.StepLoopObject, errorMessage);
+                baseInfo, stepObjectForLoop, AutomationLoopKey.StepLoopObject, errorMessage);
 
         if (errorMessage.length() > 0) {
             return handlePreparationError(baseInfo, errorMessage);
@@ -160,7 +162,7 @@ public class StepHelper {
                 : objectMapper.createObjectNode();
         int stepId = request.has("id") ? request.get("id").asInt(1) : 1;
         String stepName = request.has("name") ? request.get("name").asText("") : "";
-        ObjectNode stepObject = request.has("detail") && request.get("detail").isObject()
+        JsonNode stepObject = request.has("detail") && request.get("detail").isObject()
                 ? (ObjectNode) request.get("detail")
                 : objectMapper.createObjectNode();
 
@@ -325,7 +327,8 @@ public class StepHelper {
         StringBuilder output = new StringBuilder();
         int stepId = baseInfo.getStepId();
         int indexId = baseInfo.getIndexId();
-        ObjectNode stepObject = baseInfo.getStepObject();
+        JsonNode stepNode = baseInfo.getStepObject();
+        ObjectNode stepObject = stepNode.isObject() ? (ObjectNode) stepNode : objectMapper.createObjectNode();
         long stepStart = DataTypeUtil.fetchShanghaiZoneTimeStampNow();
 
         log.info("Start Run: runId={}, caseId={}, stepId={}, index={}", baseInfo.getRunId(), baseInfo.getCaseId(), stepId, indexId);

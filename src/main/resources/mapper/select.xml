@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="">
+<mapper namespace="sqlmapper">
     <select id="DynamicSQL" resultType="java.util.HashMap">
         ${sql}
     </select>
 
-    <select id="fetchComponentTemplateVariables" resultType="java.lang.String">
+    <select id="FetchComponentTemplateVariables" resultType="java.lang.String">
         SELECT jsonb_object_agg(component, endpoints) AS result FROM (
         (SELECT
         component,
@@ -23,73 +23,78 @@
         ) sub limit 1
     </select>
 
-    <select id="fetchIdByComponentAndScenario" resultType="java.lang.Integer">
+    <select id="FetchIdByComponentAndScenario" resultType="java.lang.Integer">
         SELECT id FROM auto_case_scenario WHERE component = #{component} AND scenario = #{scenario} AND summary =
         #{summary} AND "issueKey" = #{issueKey} AND label = #{label} limit 1
     </select>
 
-    <select id="fetchSingleAutoCaseAuditDetail" resultType="java.util.Map">
+    <select id="FetchSingleAutoCaseAuditDetail" resultType="java.util.Map">
         select "runId" as runId, "runMode" as runMode, suite as suite, "issueKey" || ' ' || summary as name, "caseId",
         "runStatus", jsonb_array_length(element -> 'steps') as "totalSteps", cast(element->>'passedSteps' as int)
         as "passedSteps",
         jsonb_array_length(element -> 'steps') - cast(element->>'passedSteps' as int) as "failedSteps", "testData"
         as "auditData",
-        jsonb_build_object('id', step -> 'line', 'name', step->'name', 'output', step->'output' ||
-        COALESCE(step->'result'->>'error_message', '{}'), 'status', step->'result'->>'status') as "testResults"
-        from auto_case_audit, jsonb_array_elements(element -> 'steps') step where "caseId" = ${caseId}
-        and "runId" = Any(string_to_array('${runIds}',',')) group by "caseId","runId",region, env,"issueKey",summary,
-        "runStatus",element,"testData"
+        jsonb_agg(jsonb_build_object(
+            'id', step -> 'line',
+            'name', step->'name',
+            'output', step->'output' || COALESCE(step->'result'->>'error_message', '{}'),
+            'status', step->'result'->>'status'
+        )) as "testResults"
+        from auto_case_audit, jsonb_array_elements(element -> 'steps') step
+        where "caseId" = ${caseId}
+        and "runId" = Any(string_to_array('${runIds}',','))
+        group by "caseId","runId","runMode",suite,region, env,"issueKey",summary, "runStatus",element,"testData"
     </select>
 
-    <select id="fetchAutoCaseAuditBaseOnComponentForAPI" resultType="java.util.Map">
+    <select id="FetchAutoCaseAuditBaseOnComponentForAPI" resultType="java.util.Map">
         with f as (
         SELECT DISTINCT
         e.id AS "caseId",
         e.component AS "mainComponent",
-        CASE WHEN jsonb_array_length(e."componentLike") = 0 THEN '' ELSE e."componentLike" ->> 0
+        CASE WHEN jsonb_array_length(e."componentlike") = 0 THEN '' ELSE e."componentlike" ->> 0
         END AS "componentLikeFirst",
         e.scenario,
         UPPER('${region}') AS region,
         UPPER('${env}') AS env,
-        COALESCE(e."serviceName",'') AS "serviceName",
+        COALESCE(c."serviceName",'') AS "serviceName",
         e.label,
-        e."issueKey",
+        e."issuekey",
         e.summary,
         CAST(COALESCE(e.script,'[]') AS varchar) AS "templateScript",
         CAST(COALESCE(e.script,'[]') AS varchar) AS "caseScript",
-        CAST(COALESCE(e."testData",'{}') AS varchar) AS "testData",
+        CAST(COALESCE(e."testdata",'{}') AS varchar) AS "testData",
         CAST(COALESCE(e.variables,'{}') AS varchar) AS "templateVariables",
         CAST(COALESCE(e.variables,'{}') AS varchar) AS "caseVariables",
-        e."isTemplate"
+        e."istemplate"
         FROM
         auto_case_scenario e
         left JOIN
         auto_case_template s
-        ON s.component = e.component AND s."templateName" = e."templateName"
+        ON s.component = e.component AND s."templateName" = e."templatename"
         left JOIN
         auto_api_configuration c
         on c.component = e.component
         left join auto_endpoint_all aa on aa.path = e.endpoint and aa.method = e.method,
-        jsonb_array_elements_text(c.profile) AS p where (aa.active = true or aa.active is null)
-        <if test="scenarios !=null and scenarios !=''">"
+        jsonb_array_elements_text(e.profile) AS p where (aa.active = true or aa.active is null)
+        <if test="scenarios !=null and scenarios !=''">
             and e.scenario = Any(string_to_array('${scenarios}',','))
         </if>
-        <if test="label !=null and label !=''">"
+        <if test="label !=null and label !=''">
             and e.label = '${label}'
         </if>
-        <if test="sanityOnly !=null and sanityOnly !=''" and sanityOnly=='true'">"
-            and e."isSanity" = true
+        <if test="sanityOnly != null and sanityOnly != '' and sanityOnly == 'true'">
+            and e."issanity" = true
         </if>
-        <if test="profile !=null and profile !=''">"
+        <if test="profile !=null and profile !=''">
             and UPPER(p) like '%${profile}%'
         </if>
-        <if test="module !=null and module !=''">"
+        <if test="module !=null and module !=''">
             and c.module like '%${module}%'
         </if>
-        <if test="id !=null and id !=''">"
+        <if test="id !=null and id !=''">
             and e.id = ${id}
         </if>
-        <if test="id == '' or id == null">"
+        <if test="id == '' or id == null">
             and e.enable = true
         </if>
         )
@@ -99,7 +104,7 @@
         '${runStatus}' as "runStatus",
         '{}' as element,
         <choose>
-            <when test="component!=null and component!=''">"
+            <when test="component!=null and component!=''">
                 '${component}###' || f.region || f.env as suite,
                 '${component}' as component,
             </when>
@@ -116,21 +121,21 @@
         f.region,
         f.env,
         f.label,
-        f."issueKey",
+        f."issuekey",
         f.summary,
         f."templateScript",
         f."caseScript",
         f."testData",
         f."templateVariables",
         f."caseVariables",
-        f."isTemplate" from f
-        <if test="component != null and component !=''">"
+        f."istemplate" from f
+        <if test="component != null and component !=''">
             where f."mainComponent" = Any(string_to_array('${component}',','))
             or f."componentLikeFirst" = Any(string_to_array('${component}',','))
         </if>
     </select>
 
-    <select id="fetchAutoCaseAuditBaseOnComponentForUI" resultType="java.util.Map">
+    <select id="FetchAutoCaseAuditBaseOnComponentForUI" resultType="java.util.Map">
         with f as (
         SELECT DISTINCT
         e.id AS "caseId",
@@ -154,25 +159,25 @@
         auto_api_configuration c
         on c.component = e.component
         <where>
-            <if test="scenarios !=null and scenarios !=''">"
+            <if test="scenarios !=null and scenarios !=''">
                 and e.scenario = Any(string_to_array('${scenarios}',','))
             </if>
-            <if test="label !=null and label !=''">"
+            <if test="label !=null and label !=''">
                 and e.label = '${label}'
             </if>
-            <if test="sanityOnly !=null and sanityOnly !=''" and sanityOnly=='true'">"
+            <if test="sanityOnly != null and sanityOnly != '' and sanityOnly == 'true'">
                 and e."isSanity" = true
             </if>
-            <if test="profile !=null and profile !=''">"
+            <if test="profile !=null and profile !=''">
                 and e."profileSupport" @> '["${profile}"]'
             </if>
-            <if test="module !=null and module !=''">"
+            <if test="module !=null and module !=''">
                 and c.module like '%${module}%'
             </if>
-            <if test="id !=null and id !=''">"
+            <if test="id !=null and id !=''">
                 and e.id = ${id}
             </if>
-            <if test="id == '' or id == null">"
+            <if test="id == '' or id == null">
                 and e.enable = true
             </if>
         </where>
@@ -183,7 +188,7 @@
         '${runStatus}' as "runStatus",
         '{}' as element,
         <choose>
-            <when test="component!=null and component!=''">"
+            <when test="component!=null and component!=''">
                 '${component}###' || f.region || f.env as suite,
                 '${component}' as component,
             </when>
@@ -205,13 +210,13 @@
         f."caseScript",
         f."testData",
         f."caseVariable" from f
-        <if test="component != null and component !=''">"
+        <if test="component != null and component !=''">
             where f."mainComponent" = Any(string_to_array('${component}',',')) or f."componentLikeFirst"
             = Any(string_to_array('${component}',','))
         </if>
     </select>
 
-    <select id="fetchAutoConfigurationBasedOnSingleComponent" resultType="java.util.Map">
+    <select id="FetchAutoConfigurationBasedOnSingleComponent" resultType="java.util.Map">
         WITH config_data AS (
         SELECT DISTINCT
         a.name AS suite,
@@ -225,11 +230,11 @@
         a.module,
         a."enableJira"::varchar AS "enableJira",
         a."enableEmail"::varchar AS "enableEmail",
-        a."enableDash"::varchar AS "enableDash"
+        a."enableFast"::varchar AS "enableFast"
         FROM
         auto_api_configuration a
         JOIN
-        auto_api_configuration b ON b=1
+        auto_api_configuration b ON 1=1
         WHERE
         a.component = '${component}'
         AND b.component = '${mainComponent}'
@@ -257,27 +262,27 @@
         f.svc as "serviceName",
         f."enableJira",
         'false' as "enableEmail",
-        f."enableDash"
+        f."enableFast"
         FROM
         config_data f limit 1
     </select>
 
-    <select id="fetchFinalFeature" resultType="java.util.Map">
+    <select id="FetchFinalFeature" resultType="java.util.Map">
         select ROW_NUMBER() OVER (ORDER BY scenario desc, name, UPPER(region || env) as profile,
         COUNT(*) as "totalCases", COUNT(CASE WHEN "runStatus" = 'PASSED' THEN 1 ELSE NULL END) as "passedCases",
         jsonb_agg(element) as elements FROM auto_case_audit
         WHERE "runId" = '${runId}' GROUP BY scenario, region, env order by scenario asc
     </select>
 
-    <select id="fetchAutoCaseUIMethod" resultType="java.util.Map">
+    <select id="FetchAutoCaseUIMethod" resultType="java.util.Map">
         SELECT id,method,COALESCE(options,'{}') as options FROM auto_case_ui_method
     </select>
 
-    <select id="fetchEhService" resultType="java.util.Map">
+    <select id="FetchEhService" resultType="java.util.Map">
         SELECT "displayName" as name FROM eh_service
     </select>
 
-    <select id="fetchAutoCaseAuditForAutoCaseUI" parameterType="map" resultType="map">
+    <select id="FetchAutoCaseAuditForAutoCaseUI" parameterType="map" resultType="map">
         SELECT f."caseId", f.component, f.profile, f.scenario, f."issueKey", f.summary,
         f.label, f.script, f.variables, f."testData", f."componentLike"
         FROM (
@@ -295,12 +300,12 @@
         "componentLike"
         FROM auto_case_ui
         WHERE 1=1
-        <if test="caseId == null or caseId == ''">"
+        <if test="caseId == null or caseId == ''">
             AND enable = true
             AND ("isSanity" = true OR "isSanity" = #{sanityOnly})
             AND (component = #{component} OR jsonb_contains("componentLike", '"' || #{component} || '"'))
         </if>
-        <if test="caseId != null and caseId != ''">"
+        <if test="caseId != null and caseId != ''">
             AND id = #{caseId}
         </if>
         ) f
@@ -340,7 +345,7 @@
         WHERE service_name = #{serviceName} AND profile = #{profileName};
     </select>
 
-    <select id="fetchFinalTestResultFromAudit" parameterType="map" resultType="string">
+    <select id="FetchFinalTestResultFromAudit" parameterType="map" resultType="string">
         select jsonb_build_object(
         'runId', "runId",
         'profile', UPPER(region || env),
@@ -363,14 +368,14 @@
         GROUP BY "caseId", "runId", region, env, "issueKey", summary, "runStatus", element, "testData";
     </select>
 
-    <select id="fetchValueFromAutoSystemVariables" parameterType="string" resultType="string">
+    <select id="FetchValueFromAutoSystemVariables" parameterType="string" resultType="string">
         SELECT value
         FROM auto_system_variable
         WHERE config_key LIKE '%${key}%'
         LIMIT 1;
     </select>
 
-    <select id="fetchSvcRegionsFromConfiguration" parameterType="map" resultType="map">
+    <select id="FetchSvcRegionsFromConfiguration" parameterType="map" resultType="map">
         SELECT "serviceName", regions
         FROM auto_api_configuration
         <if test="serviceNames != null and serviceNames.size() > 0">
@@ -478,7 +483,7 @@
         </if>
     </select>
 
-    <select id="fetchEndpointCount" parameterType="map" resultType="int">
+    <select id="FetchEndpointCount" parameterType="map" resultType="int">
         SELECT COUNT(*)
         FROM auto_case
         WHERE path = #{endpoint} AND method = #{method};
@@ -490,14 +495,14 @@
         WHERE path = #{path} AND method = #{method} AND service_name = #{serviceName};
     </select>
 
-    <select id="fetchAutoSysVariableValueByKeyName" parameterType="java.lang.String" resultType="java.lang.String">
+    <select id="FetchAutoSysVariableValueByKeyName" parameterType="java.lang.String" resultType="java.lang.String">
         SELECT value
         FROM auto_system_variable
         WHERE config_key = #{key}
         LIMIT 1;
     </select>
 
-    <select id="fetchRioMessageByTemplateName" parameterType="java.lang.String" resultType="AutoRioTemplate">
+    <select id="FetchRioMessageByTemplateName" parameterType="java.lang.String" resultType="AutoRioTemplate">
         SELECT name, "projectKey", component, feed, booking_system AS bookingSystem, region, baseline,
         ignore_tags AS ignoreTags
         FROM auto_rio_template
@@ -526,7 +531,7 @@
         ${sql}
     </select>
 
-    <select id="fetchAutoCaseAudit" parameterType="map" resultType="java.lang.String">
+    <select id="FetchAutoCaseAudit" parameterType="map" resultType="java.lang.String">
         SELECT jsonb_build_object(
         'runId', "runId",
         'suite', suite,
@@ -550,7 +555,7 @@
         LIMIT 1;
     </select>
 
-    <select id="fetchAutoCaseUIElementsByUIElement" parameterType="map" resultType="map">
+    <select id="FetchAutoCaseUIElementsByUIElement" parameterType="map" resultType="map">
         SELECT id, page, name, selector, frame, application
         FROM auto_case_ui_element
         WHERE page = #{page}
@@ -560,12 +565,12 @@
         AND application = trim(#{application});
     </select>
 
-    <select id="fetchAllAutoCaseUIElements" resultType="map">
+    <select id="FetchAllAutoCaseUIElements" resultType="map">
         SELECT id, page, name, selector, frame, application
         FROM auto_case_ui_element;
     </select>
 
-    <select id="fetchAllAutoCaseUI" resultType="map">
+    <select id="FetchAllAutoCaseUI" resultType="map">
         WITH f AS (
             SELECT DISTINCT
             e.enable,
@@ -606,7 +611,7 @@
         FROM f;
     </select>
 
-    <select id="fetchAutoCaseUIById" parameterType="java.lang.Integer" resultType="java.util.Map">
+    <select id="FetchAutoCaseUIById" parameterType="java.lang.Integer" resultType="java.util.Map">
         WITH f AS (
             SELECT DISTINCT
             e.enable,
@@ -653,7 +658,7 @@
         FROM f;
     </select>
 
-    <select id="fetchIdFromAutoCaseUIByComponentAndScenario" parameterType="java.util.Map" resultType="java.lang.Integer">
+    <select id="FetchIdFromAutoCaseUIByComponentAndScenario" parameterType="java.util.Map" resultType="java.lang.Integer">
         SELECT id
         FROM auto_case_ui
         WHERE component = #{component}
@@ -664,11 +669,10 @@
         LIMIT 1;
     </select>
 
-    <select id="fetchAutoCaseUIBehaviorsBySearch" parameterType="java.util.Map" resultType="java.util.Map">
+    <select id="FetchAutoCaseUIBehaviorsBySearch" parameterType="java.util.Map" resultType="java.util.Map">
         SELECT id, page, name, script, variable
         FROM auto_case_ui_behavior
         <where>
-            <if test="globalSearch != null and globalSearch
             <if test="globalSearch != null and globalSearch != ''">
                 AND (LOWER(page) LIKE '%${globalSearch}%' OR LOWER(name) LIKE '%${globalSearch}%' OR id::text =
                 '${globalSearch}')
@@ -685,18 +689,18 @@
         </where>
     </select>
 
-    <select id="fetchAllAutoCaseUIBehaviors" resultType="java.util.Map">
+    <select id="FetchAllAutoCaseUIBehaviors" resultType="java.util.Map">
         SELECT id, application, page, name, script, variable
         FROM auto_case_ui_behavior;
     </select>
 
-    <select id="fetchAutoCaseUIBehaviorById" parameterType="java.lang.Integer" resultType="java.util.Map">
+    <select id="FetchAutoCaseUIBehaviorById" parameterType="java.lang.Integer" resultType="java.util.Map">
         SELECT id, application, page, name, script, variable
         FROM auto_case_ui_behavior
         WHERE id = #{id};
     </select>
 
-    <select id="fetchIdFromAutoCaseUIPageByPageNameAndBehaviorName" parameterType="java.util.Map" resultType=
+    <select id="FetchIdFromAutoCaseUIPageByPageNameAndBehaviorName" parameterType="java.util.Map" resultType=
     "java.lang.Integer">
         SELECT id
         FROM auto_case_ui_behavior
@@ -704,35 +708,35 @@
         LIMIT 1;
     </select>
 
-    <select id="fetchPageElementList" resultType="java.util.HashMap">
+    <select id="FetchPageElementList" resultType="java.util.HashMap">
         SELECT page, json_agg(name)::text AS name
         FROM auto_case_ui_element
         GROUP BY page;
     </select>
 
-    <select id="fetchPageBehaviorList" resultType="java.util.HashMap">
+    <select id="FetchPageBehaviorList" resultType="java.util.HashMap">
         SELECT page, json_agg(name)::text AS name
         FROM auto_case_ui_behavior
         GROUP BY page;
     </select>
 
-    <select id="fetchAutoCaseBySearch" parameterType="java.util.Map" resultType="APIAutoCaseForUIResponse">
+    <select id="FetchAutoCaseBySearch" parameterType="java.util.Map" resultType="APIAutoCaseForUIResponse">
         WITH f AS (
             SELECT DISTINCT
             e.enable,
-            e."isSanity",
+            e."issanity",
             e.id,
             e.component,
-            CAST(COALESCE(e."componentLike",'[]') AS varchar) AS "componentLikeStr",
+            CAST(COALESCE(e."componentlike",'[]') AS varchar) AS "componentLikeStr",
             e.scenario,
             CAST(COALESCE(e.profile,'[]') AS varchar) AS "profileStr",
             e.label,
-            e."issueKey",
+            e."issuekey",
             e.summary,
-            e."isTemplate",
+            e."istemplate",
             COALESCE(e.endpoint,'') AS endpoint,
             COALESCE(e.method,'') AS method,
-            COALESCE(e."endpointLike",'{}') AS "endpointLike",
+            COALESCE(e."endpointlike",'{}') AS "endpointLike",
             COALESCE(a.namuat, 0.0) AS namuat,
             COALESCE(a.namdev, 0.0) AS namdev,
             COALESCE(a.namqa, 0.0) AS namqa,
@@ -747,47 +751,47 @@
             auto_case_scenario e
             LEFT JOIN auto_case_passrate a ON e.id = a."caseId"
             <where>
-                <if test="search !=''" and search != null">
+                <if test="search != null and search != ''">
                     (CAST(e.id AS varchar) = #{search}
                     OR LOWER(e.summary) LIKE CONCAT('%', #{search}, '%')
                     OR LOWER(e.component) LIKE CONCAT('%', #{search}, '%')
-                    OR LOWER(e."templateName") LIKE CONCAT('%', #{search}, '%')
-                    OR LOWER(e."issueKey") LIKE CONCAT('%', #{search}, '%')
+                    OR LOWER(e."templatename") LIKE CONCAT('%', #{search}, '%')
+                    OR LOWER(e."issuekey") LIKE CONCAT('%', #{search}, '%')
                     OR LOWER(e.scenario) LIKE CONCAT('%', #{search}, '%')
                     OR LOWER(e.label) LIKE CONCAT('%', #{search}, '%')
-                    OR LOWER(CAST(e."componentLike" AS varchar)) LIKE CONCAT('%', #{search}, '%')
+                    OR LOWER(CAST(e."componentlike" AS varchar)) LIKE CONCAT('%', #{search}, '%')
                     OR LOWER(CAST(e.profile AS varchar)) LIKE CONCAT('%', #{search}, '%')
                     OR LOWER(e.endpoint) LIKE CONCAT('%', #{search}, '%')
                     OR LOWER(e.method) LIKE CONCAT('%', #{search}, '%'))
                 </if>
-                <if test="id !=''" and id != null">
+                <if test="id != null and id != ''">
                     AND CAST(e.id AS varchar) = #{id}
                 </if>
-                <if test="summary !=''" and summary != null">
+                <if test="summary != null and summary != ''">
                     AND LOWER(e.summary) LIKE CONCAT('%', #{summary}, '%')
                 </if>
-                <if test="component !=''" and component != null">
+                <if test="component != null and component != ''">
                     AND LOWER(e.component) LIKE CONCAT('%', #{component}, '%')
                 </if>
-                <if test="issueKey !=''" and issueKey != null">
-                    AND LOWER(e."issueKey") LIKE CONCAT('%', #{issueKey}, '%')
+                <if test="issueKey != null and issueKey != ''">
+                    AND LOWER(e."issuekey") LIKE CONCAT('%', #{issueKey}, '%')
                 </if>
-                <if test="scenario !=''" and scenario != null">
+                <if test="scenario != null and scenario != ''">
                     AND LOWER(e.scenario) LIKE CONCAT('%', #{scenario}, '%')
                 </if>
-                <if test="label !=''" and label != null">
+                <if test="label != null and label != ''">
                     AND LOWER(e.label) LIKE CONCAT('%', #{label}, '%')
                 </if>
-                <if test="componentLike !=''" and componentLike != null">
-                    AND LOWER(CAST(e."componentLike" AS varchar)) = CONCAT('%', #{componentLike}, '%')
+                <if test="componentLike != null and componentLike != ''">
+                    AND LOWER(CAST(e."componentlike" AS varchar)) = CONCAT('%', #{componentLike}, '%')
                 </if>
-                <if test="profile !=''" and profile != null">
+                <if test="profile != null and profile != ''">
                     AND LOWER(CAST(e.profile AS varchar)) = CONCAT('%', #{profile}, '%')
                 </if>
-                <if test="endpoint !=''" and endpoint != null">
+                <if test="endpoint != null and endpoint != ''">
                     AND LOWER(e.endpoint) LIKE CONCAT('%', #{endpoint}, '%')
                 </if>
-                <if test="method !=''" and method != null">
+                <if test="method != null and method != ''">
                     AND LOWER(e.method) LIKE CONCAT('%', #{method}, '%')
                 </if>
             </where>
@@ -801,29 +805,29 @@
         FROM f;
     </select>
 
-    <select id="fetchAutoCaseById" parameterType="java.lang.Integer" resultType="APIAutoCaseForUISingleIdResponse">
+    <select id="FetchAutoCaseById" parameterType="java.lang.Integer" resultType="APIAutoCaseForUISingleIdResponse">
         WITH f AS (
             SELECT DISTINCT
             e.enable,
-            e."isSanity",
+            e."issanity",
             e.id,
             e.component,
-            e."templateName" AS template,
-            CAST(COALESCE(e."componentLike",'[]') AS varchar) AS "componentLikeStr",
+            e."templatename" AS template,
+            CAST(COALESCE(e."componentlike",'[]') AS varchar) AS "componentLikeStr",
             e.scenario,
             CAST(COALESCE(e.profile,'[]') AS varchar) AS "profileStr",
             e.label,
-            e."issueKey",
+            e."issuekey",
             e.summary,
             CAST(COALESCE(e.script,'[]') AS varchar) AS script,
-            CAST(COALESCE(e."testData",'{}') AS varchar) AS "testData",
-            CASE WHEN e."isTemplate" IS TRUE THEN CAST(COALESCE(s.variables,'{}') AS varchar) ELSE '{}' END
+            CAST(COALESCE(e."testdata",'{}') AS varchar) AS "testData",
+            CASE WHEN e."istemplate" IS TRUE THEN CAST(COALESCE(s.variables,'{}') AS varchar) ELSE '{}' END
             AS "templateVariables",
             CAST(COALESCE(e.variables,'{}') AS varchar) AS "caseVariables",
-            e."isTemplate",
+            e."istemplate",
             COALESCE(e.endpoint,'') AS endpoint,
             COALESCE(e.method,'') AS method,
-            COALESCE(e."endpointLike",'{}') AS "endpointLike",
+            COALESCE(e."endpointlike",'{}') AS "endpointLike",
             COALESCE(a.namuat, 0.0) AS namuat,
             COALESCE(a.namdev, 0.0) AS namdev,
             COALESCE(a.namqa, 0.0) AS namqa,
@@ -837,7 +841,7 @@
             FROM
             auto_case_scenario e
             LEFT JOIN auto_case_passrate a ON e.id = a."caseId"
-            LEFT JOIN auto_case_template s ON s.component = e.component AND s."templateName" = e."templateName"
+            LEFT JOIN auto_case_template s ON s.component = e.component AND s."templateName" = e."templatename"
             <where>
                 <if test="id != '' and id != null">
                     AND e.id = #{id}
@@ -852,23 +856,23 @@
         FROM f;
     </select>
 
-    <select id="fetchAllAutoCase" resultType="APIAutoCaseForUIResponse">
+    <select id="FetchAllAutoCase" resultType="APIAutoCaseForUIResponse">
         WITH f AS (
             SELECT DISTINCT
             e.enable,
-            e."isSanity",
+            e."issanity",
             e.id,
             e.component,
-            CAST(COALESCE(e."componentLike",'[]') AS varchar) AS "componentLikeStr",
+            CAST(COALESCE(e."componentlike",'[]') AS varchar) AS "componentLikeStr",
             e.scenario,
             CAST(COALESCE(e.profile,'[]') AS varchar) AS "profileStr",
             e.label,
-            e."issueKey",
+            e."issuekey",
             e.summary,
-            e."isTemplate",
+            e."istemplate",
             COALESCE(e.endpoint,'') AS endpoint,
             COALESCE(e.method,'') AS method,
-            COALESCE(e."endpointLike",'{}') AS "endpointLike",
+            COALESCE(e."endpointlike",'{}') AS "endpointLike",
             COALESCE(a.namuat, 0.0) AS namuat,
             COALESCE(a.namdev, 0.0) AS namdev,
             COALESCE(a.namqa, 0.0) AS namqa,

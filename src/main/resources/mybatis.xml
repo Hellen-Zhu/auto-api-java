@@ -7,20 +7,21 @@
     <!-- ========== 类型别名 ========== -->
     <typeAliases>
         <typeAlias alias="EndpointInfo"
-                   type="citi.equities.lifecycleqa.eh.common.entities.EndpointInfo"/>
+                   type="citi.equities.lifecycleqa.common.entities.EndpointInfo"/>
         <typeAlias alias="JiraEntity"
-                   type="citi.equities.lifecycleqa.eh.common.entities.JiraEntity"/>
+                   type="citi.equities.lifecycleqa.common.entities.JiraEntity"/>
         <typeAlias alias="AutoRioTemplate"
-                   type="citi.equities.lifecycleqa.eh.common.entities.AutoRioTemplate"/>
-        <typeAlias alias="APIAutoCaseForURIResponse"
-                   type="citi.equities.lifecycleqa.eh.common.entities.AutoRioTemplate"/>
-        <typeAlias alias="APIAutoCaseForURISingleIdResponse"
-                   type="citi.equities.lifecycleqa.eh.common.entities.AutoRioTemplate"/>
+                   type="citi.equities.lifecycleqa.common.entities.AutoRioTemplate"/>
+        <typeAlias alias="APIAutoCaseForUIResponse"
+                   type="citi.equities.lifecycleqa.common.entities.APIAutoCaseForUIResponse"/>
+        <typeAlias alias="APIAutoCaseForUISingleIdResponse"
+                   type="citi.equities.lifecycleqa.common.entities.APIAutoCaseForUISingleIdResponse"/>
     </typeAliases>
 
     <!-- ========== 插件 ========== -->
     <plugins>
         <plugin interceptor="com.github.pagehelper.PageInterceptor"/>
+        <plugin interceptor="citi.equities.lifecycleqa.common.utils.SqlLoggingInterceptor"/>
     </plugins>
 
     <!-- ========== 环境配置 ========== -->

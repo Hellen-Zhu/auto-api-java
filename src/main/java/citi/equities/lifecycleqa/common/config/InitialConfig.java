@@ -128,93 +128,19 @@ public class InitialConfig {
     }
 
     private static void fetchEHConfigurationMap() {
-        List<String> urls = new ArrayList<>();
-        for (EHEureka eureka : EHEureka.values()) {
-            urls.add(eureka.getUrl());
-        }
+        // 手动构造 LIF 数据库配置
+        Map<String, String> dbPropertyMap = new HashMap<>();
+        dbPropertyMap.put("ehapi.lif.global.driver", "org.postgresql.Driver");
+        dbPropertyMap.put("ehapi.lif.global.url", "jdbc:postgresql://localhost:5432/autotest");
+        dbPropertyMap.put("ehapi.lif.global.username", "admin");
+        dbPropertyMap.put("ehapi.lif.global.password", "password");
 
-        String urlSet = fetchEurekaAndConfigSVCUrl(urls);
-        if (urlSet == null) {
-            log.error("Failed to fetch Eureka and Config SVC URL");
-            return;
-        }
-
-        String[] parts = urlSet.split("##");
-        String eurekaUrl = parts[0];
-        String configSVCUrl = parts[1];
-        log.info("Success to connect Eureka URL: {}, Config SVC URL: {}", eurekaUrl, configSVCUrl);
-
-        String activeProfile = null;
-        for (EHEureka eureka : EHEureka.values()) {
-            if (eurekaUrl.contains(eureka.getUrl())) {
-                activeProfile = eureka.getProfile();
-                break;
-            }
-        }
-
-        if (activeProfile == null) {
-            log.error("Failed to find active profile");
-            return;
-        }
-
-        Map<String, String> resultMap = buildEHConfiguration(configSVCUrl, activeProfile);
-
+        // 只为 LIF 数据库建立连接
         for (DBConnectKey key : DBConnectKey.values()) {
-            Map<String, String> dbConnectMap = buildDBConnectMap(resultMap, key.getDbName(), key.getProfile().toLowerCase());
+            Map<String, String> dbConnectMap = buildDBConnectMap(dbPropertyMap, key.getDbName(), key.getProfile());
             INFO_CONFIG.put(key.getConnectName(), dbConnectMap);
             DB_CONFIG.put(key.getConnectName(), getSqlSessionManager(dbConnectMap));
         }
-    }
-
-    private static String fetchEurekaAndConfigSVCUrl(List<String> urls) {
-        ExecutorService executor = Executors.newFixedThreadPool(10);
-        CompletableFuture<String> resultFuture = new CompletableFuture<>();
-
-        for (String url : urls) {
-            executor.submit(() -> {
-                try {
-                    if (resultFuture.isDone()) return;
-
-                    Response response = RestAssured.given().get(url + "/eureka/apps");
-                    if (response.getStatusCode() == 200) {
-                        String homePageUrl = findHomePageUrl(response.asInputStream());
-                        if (!homePageUrl.isEmpty()) {
-                            resultFuture.complete(url + "##" + homePageUrl);
-                        }
-                    }
-                } catch (Exception e) {
-                    log.debug("Failed to connect to URL: {}", url);
-                }
-            });
-        }
-
-        try {
-            return resultFuture.get(30, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            log.error("Failed to fetch Eureka URL: {}", e.getMessage());
-            return null;
-        } finally {
-            executor.shutdown();
-        }
-    }
-
-    private static String findHomePageUrl(InputStream inputStream) {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            String line;
-            boolean foundName = false;
-            while ((line = reader.readLine()) != null) {
-                if (line.contains("<name>EH-MICROSERVICE-CONFIG</name>")) {
-                    foundName = true;
-                } else if (foundName && line.contains("<homePageUrl>")) {
-                    int start = line.indexOf("<homePageUrl>") + "<homePageUrl>".length();
-                    int end = line.indexOf("</homePageUrl>");
-                    return line.substring(start, end);
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error reading input stream: {}", e.getMessage());
-        }
-        return "";
     }
 
     private static Map<String, String> buildDBConnectMap(Map<String, String> dbPropertyMap, String dbName, String profile) {
@@ -222,7 +148,7 @@ public class InitialConfig {
         result.put("driver", dbPropertyMap.getOrDefault("ehapi." + dbName + "." + profile + ".driver", ""));
         result.put("url", dbPropertyMap.getOrDefault("ehapi." + dbName + "." + profile + ".url", ""));
         result.put("username", dbPropertyMap.getOrDefault("ehapi." + dbName + "." + profile + ".username", ""));
-        result.put("password", RSAUtil.decrypt(dbPropertyMap.getOrDefault("ehapi." + dbName + "." + profile + ".password", "")));
+        result.put("password", dbPropertyMap.getOrDefault("ehapi." + dbName + "." + profile + ".password", ""));
         return result;
     }
 
@@ -241,29 +167,6 @@ public class InitialConfig {
         } catch (Exception e) {
             log.error("Failed to create SqlSessionManager: {}", e.getMessage());
             return null;
-        }
-    }
-
-    private static Map<String, String> buildEHConfiguration(String configSVCUrl, String profile) {
-        String finalProfile = profile.toLowerCase().replace("dev", "dailyrefresh");
-        try {
-            Response response = RestAssured.given()
-                    .get(configSVCUrl + "/manage-config/getConfigurations/mondo-testng-api-service/" + finalProfile);
-
-            Map<String, String> result = new HashMap<>();
-            JsonNode jsonArray = objectMapper.readTree(response.asString());
-            if (jsonArray.isArray()) {
-                for (JsonNode node : jsonArray) {
-                    String key = node.has("pk") && node.get("pk").has("configKey")
-                            ? node.get("pk").get("configKey").asText("") : "";
-                    String value = node.has("value") ? node.get("value").asText("") : "";
-                    result.put(key, value);
-                }
-            }
-            return result;
-        } catch (Exception e) {
-            log.error("Failed to build EH Configuration: {}", e.getMessage());
-            return new HashMap<>();
         }
     }
 

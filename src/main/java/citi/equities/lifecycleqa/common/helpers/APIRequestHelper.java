@@ -38,7 +38,15 @@ public class APIRequestHelper {
 
         String path = testObjectFinal.has("path") ? testObjectFinal.get("path").asText("") : "";
         String method = testObjectFinal.has("method") ? testObjectFinal.get("method").asText("") : "";
-        String serviceName = testObjectFinal.has("serviceName") ? testObjectFinal.get("serviceName").asText("") : "";
+
+        // 从 variables 中获取 serviceName，如果没有则从测试对象获取
+        String serviceName;
+        if (baseInfo.getVariables() != null && baseInfo.getVariables().has("serviceName")) {
+            serviceName = baseInfo.getVariables().get("serviceName").asText();
+        } else {
+            serviceName = testObjectFinal.has("serviceName") ? testObjectFinal.get("serviceName").asText("") : "";
+        }
+
         String baseUrl = InitialConfig.fetchBaseUrl(serviceName, baseInfo.getRegion() + baseInfo.getEnv());
 
         if (baseUrl == null || baseUrl.isBlank()) {

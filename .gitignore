@@ -19,3 +19,6 @@ logs/
 
 # Local configuration
 *.local
+
+# Build output
+bin/

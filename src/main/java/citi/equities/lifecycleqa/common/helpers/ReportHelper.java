@@ -35,7 +35,8 @@ public class ReportHelper {
         int stepId = stepInfo.getStepId();
         int indexId = stepInfo.getIndexId();
         String stepName = stepInfo.getStepName();
-        ObjectNode testObject = stepInfo.getStepObject();
+        JsonNode stepObjectNode = stepInfo.getStepObject();
+        ObjectNode testObject = stepObjectNode.isObject() ? (ObjectNode) stepObjectNode : objectMapper.createObjectNode();
 
         if (output.length() == 0) {
             String serviceName = testObject.has("serviceName") ? testObject.get("serviceName").asText("") : "";

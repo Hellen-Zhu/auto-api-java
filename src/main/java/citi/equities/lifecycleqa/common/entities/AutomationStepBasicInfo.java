@@ -19,5 +19,5 @@ public class AutomationStepBasicInfo {
     private int stepId;
     private String stepName;
     private int indexId;
-    private ObjectNode stepObject;
+    private JsonNode stepObject;
 }

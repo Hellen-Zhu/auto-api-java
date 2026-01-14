@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import citi.equities.lifecycleqa.common.config.InitialConfig;
 import citi.equities.lifecycleqa.common.entities.SuiteParameter;
 import citi.equities.lifecycleqa.common.entities.TestNGXMLParameter;
-import citi.equities.lifecycleqa.common.enums.*;
 import citi.equities.lifecycleqa.common.utils.DBUtil;
 import io.restassured.RestAssured;
 import org.apache.ibatis.session.SqlSession;
@@ -165,6 +164,7 @@ public class SuiteGeneratePreparationHelper {
         Map<String, Object> queryParams = new HashMap<>();
         queryParams.put("component", request.getComponent());
         queryParams.put("region", request.getRegion());
+        queryParams.put("env", request.getEnv());
         queryParams.put("profile", request.getProfile().name());
         queryParams.put("sanityOnly", String.valueOf(request.isSanityOnly()));
         queryParams.put("runMode", request.getRunMode().name());
@@ -181,6 +181,10 @@ public class SuiteGeneratePreparationHelper {
         } else {
             statementName = LIFDBStatement.FetchAutoCaseAuditBaseOnComponentForUI.name();
         }
+
+        // 打印 SQL 执行信息
+        log.info("准备执行 SQL Statement: {}", statementName);
+        log.info("SQL 参数: {}", queryParams);
 
         try {
             JsonNode autoCaseAuditsFromDB = DBUtil.executeLIF(statementName, false, errorMessage, queryParams);

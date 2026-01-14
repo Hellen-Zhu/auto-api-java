@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="">
+<mapper namespace="sqlmapper">
     <update id="updateAutoCaseAudit">
         update auto_case_audit
         <set>
@@ -12,6 +12,14 @@
             </if>
         </set>
         where "runId" = '${runId}' and "caseId" = ${caseId}
+    </update>
+
+    <update id="UpdateAutoCaseAudit" parameterType="map">
+        UPDATE auto_case_audit
+        SET element = #{element}::jsonb,
+            "runStatus" = #{runStatus}::automation_run_status
+        WHERE "runId" = #{runId}
+        AND "caseId" = #{caseId};
     </update>
 
     <update id="updateAutoProgress">
